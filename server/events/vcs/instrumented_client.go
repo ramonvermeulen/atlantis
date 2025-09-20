@@ -11,20 +11,22 @@ import (
 )
 
 // NewInstrumentedGithubClient creates a client proxy responsible for gathering stats and logging
-func NewInstrumentedGithubClient(client *GithubClient, statsScope tally.Scope, logger logging.SimpleLogging) IGithubClient {
+func NewInstrumentedGithubClient(client *GithubClient, statsScope tally.Scope, logger logging.SimpleLogging, disableHighCardinalityMetrics bool) IGithubClient {
 	scope := statsScope.SubScope("github")
 
 	instrumentedGHClient := &InstrumentedClient{
-		Client:     client,
-		StatsScope: scope,
-		Logger:     logger,
+		Client:                        client,
+		StatsScope:                    scope,
+		Logger:                        logger,
+		DisableHighCardinalityMetrics: disableHighCardinalityMetrics,
 	}
 
 	return &InstrumentedGithubClient{
-		InstrumentedClient: instrumentedGHClient,
-		PullRequestGetter:  client,
-		StatsScope:         scope,
-		Logger:             logger,
+		InstrumentedClient:            instrumentedGHClient,
+		PullRequestGetter:             client,
+		StatsScope:                    scope,
+		Logger:                        logger,
+		DisableHighCardinalityMetrics: disableHighCardinalityMetrics,
 	}
 }
 
@@ -45,14 +47,15 @@ type IGithubClient interface {
 // methods and implement solely any github specific interfaces.
 type InstrumentedGithubClient struct {
 	*InstrumentedClient
-	PullRequestGetter GithubPullRequestGetter
-	StatsScope        tally.Scope
-	Logger            logging.SimpleLogging
+	PullRequestGetter             GithubPullRequestGetter
+	StatsScope                    tally.Scope
+	Logger                        logging.SimpleLogging
+	DisableHighCardinalityMetrics bool
 }
 
 func (c *InstrumentedGithubClient) GetPullRequest(logger logging.SimpleLogging, repo models.Repo, pullNum int) (*github.PullRequest, error) {
 	scope := c.StatsScope.SubScope("get_pull_request")
-	scope = SetGitScopeTags(scope, repo.FullName, pullNum)
+	scope = SetGitScopeTags(scope, repo.FullName, pullNum, c.DisableHighCardinalityMetrics)
 
 	executionTime := scope.Timer(metrics.ExecutionTimeMetric).Start()
 	defer executionTime.Stop()
@@ -75,13 +78,14 @@ func (c *InstrumentedGithubClient) GetPullRequest(logger logging.SimpleLogging, 
 
 type InstrumentedClient struct {
 	Client
-	StatsScope tally.Scope
-	Logger     logging.SimpleLogging
+	StatsScope                    tally.Scope
+	Logger                        logging.SimpleLogging
+	DisableHighCardinalityMetrics bool
 }
 
 func (c *InstrumentedClient) GetModifiedFiles(logger logging.SimpleLogging, repo models.Repo, pull models.PullRequest) ([]string, error) {
 	scope := c.StatsScope.SubScope("get_modified_files")
-	scope = SetGitScopeTags(scope, repo.FullName, pull.Num)
+	scope = SetGitScopeTags(scope, repo.FullName, pull.Num, c.DisableHighCardinalityMetrics)
 
 	executionTime := scope.Timer(metrics.ExecutionTimeMetric).Start()
 	defer executionTime.Stop()
@@ -103,7 +107,7 @@ func (c *InstrumentedClient) GetModifiedFiles(logger logging.SimpleLogging, repo
 
 func (c *InstrumentedClient) CreateComment(logger logging.SimpleLogging, repo models.Repo, pullNum int, comment string, command string) error {
 	scope := c.StatsScope.SubScope("create_comment")
-	scope = SetGitScopeTags(scope, repo.FullName, pullNum)
+	scope = SetGitScopeTags(scope, repo.FullName, pullNum, c.DisableHighCardinalityMetrics)
 
 	executionTime := scope.Timer(metrics.ExecutionTimeMetric).Start()
 	defer executionTime.Stop()
@@ -142,7 +146,7 @@ func (c *InstrumentedClient) ReactToComment(logger logging.SimpleLogging, repo m
 
 func (c *InstrumentedClient) HidePrevCommandComments(logger logging.SimpleLogging, repo models.Repo, pullNum int, command string, dir string) error {
 	scope := c.StatsScope.SubScope("hide_prev_plan_comments")
-	scope = SetGitScopeTags(scope, repo.FullName, pullNum)
+	scope = SetGitScopeTags(scope, repo.FullName, pullNum, c.DisableHighCardinalityMetrics)
 
 	executionTime := scope.Timer(metrics.ExecutionTimeMetric).Start()
 	defer executionTime.Stop()
@@ -163,7 +167,7 @@ func (c *InstrumentedClient) HidePrevCommandComments(logger logging.SimpleLoggin
 
 func (c *InstrumentedClient) PullIsApproved(logger logging.SimpleLogging, repo models.Repo, pull models.PullRequest) (models.ApprovalStatus, error) {
 	scope := c.StatsScope.SubScope("pull_is_approved")
-	scope = SetGitScopeTags(scope, repo.FullName, pull.Num)
+	scope = SetGitScopeTags(scope, repo.FullName, pull.Num, c.DisableHighCardinalityMetrics)
 
 	executionTime := scope.Timer(metrics.ExecutionTimeMetric).Start()
 	defer executionTime.Stop()
@@ -185,7 +189,7 @@ func (c *InstrumentedClient) PullIsApproved(logger logging.SimpleLogging, repo m
 
 func (c *InstrumentedClient) PullIsMergeable(logger logging.SimpleLogging, repo models.Repo, pull models.PullRequest, vcsstatusname string, ignoreVCSStatusNames []string) (bool, error) {
 	scope := c.StatsScope.SubScope("pull_is_mergeable")
-	scope = SetGitScopeTags(scope, repo.FullName, pull.Num)
+	scope = SetGitScopeTags(scope, repo.FullName, pull.Num, c.DisableHighCardinalityMetrics)
 
 	executionTime := scope.Timer(metrics.ExecutionTimeMetric).Start()
 	defer executionTime.Stop()
@@ -213,7 +217,7 @@ func (c *InstrumentedClient) UpdateStatus(logger logging.SimpleLogging, repo mod
 	}
 
 	scope := c.StatsScope.SubScope("update_status")
-	scope = SetGitScopeTags(scope, repo.FullName, pull.Num)
+	scope = SetGitScopeTags(scope, repo.FullName, pull.Num, c.DisableHighCardinalityMetrics)
 
 	executionTime := scope.Timer(metrics.ExecutionTimeMetric).Start()
 	defer executionTime.Stop()
@@ -233,7 +237,7 @@ func (c *InstrumentedClient) UpdateStatus(logger logging.SimpleLogging, repo mod
 
 func (c *InstrumentedClient) MergePull(logger logging.SimpleLogging, pull models.PullRequest, pullOptions models.PullRequestOptions) error {
 	scope := c.StatsScope.SubScope("merge_pull")
-	scope = SetGitScopeTags(scope, pull.BaseRepo.FullName, pull.Num)
+	scope = SetGitScopeTags(scope, pull.BaseRepo.FullName, pull.Num, c.DisableHighCardinalityMetrics)
 
 	executionTime := scope.Timer(metrics.ExecutionTimeMetric).Start()
 	defer executionTime.Stop()
@@ -251,7 +255,10 @@ func (c *InstrumentedClient) MergePull(logger logging.SimpleLogging, pull models
 	return nil
 }
 
-func SetGitScopeTags(scope tally.Scope, repoFullName string, pullNum int) tally.Scope {
+func SetGitScopeTags(scope tally.Scope, repoFullName string, pullNum int, disableHighCardinalityMetrics bool) tally.Scope {
+	if disableHighCardinalityMetrics {
+		return scope
+	}
 	return scope.Tagged(map[string]string{
 		"base_repo": repoFullName,
 		"pr_number": strconv.Itoa(pullNum),

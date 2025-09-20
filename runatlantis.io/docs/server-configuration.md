@@ -463,6 +463,16 @@ ATLANTIS_DISABLE_GLOBAL_APPLY_LOCK=true
 
 If true, removes button in the UI that allows users to globally disable apply commands.
 
+### `--disable-high-cardinality-metrics` <Badge text="v0.37.0+" type="info"/>
+
+```bash
+atlantis server --disable-high-cardinality-metrics
+# or
+ATLANTIS_DISABLE_HIGH_CARDINALITY_METRICS=true
+```
+
+Disable high-cardinality metrics (such as per-PR metrics) to prevent memory leaks.
+
 ### `--disable-markdown-folding` <Badge text="v0.31.0+" type="info"/>
 
 ```bash

@@ -38,7 +38,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/mitchellh/go-homedir"
 	tally "github.com/uber-go/tally/v4"
-	prometheus "github.com/uber-go/tally/v4/prometheus"
+	"github.com/uber-go/tally/v4/prometheus"
 	"github.com/urfave/negroni/v3"
 
 	cfg "github.com/runatlantis/atlantis/server/core/config"
@@ -273,7 +273,7 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 			return nil, err
 		}
 
-		githubClient = vcs.NewInstrumentedGithubClient(rawGithubClient, statsScope, logger)
+		githubClient = vcs.NewInstrumentedGithubClient(rawGithubClient, statsScope, logger, userConfig.DisableHighCardinalityMetrics)
 	}
 	if userConfig.GitlabUser != "" {
 		supportedVCSHosts = append(supportedVCSHosts, models.Gitlab)
@@ -989,6 +989,7 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 		AzureDevopsWebhookBasicPassword: []byte(userConfig.AzureDevopsWebhookPassword),
 		AzureDevopsRequestValidator:     &events_controllers.DefaultAzureDevopsRequestValidator{},
 		GiteaWebhookSecret:              []byte(userConfig.GiteaWebhookSecret),
+		DisableHighCardinalityMetrics:   userConfig.DisableHighCardinalityMetrics,
 	}
 	githubAppController := &controllers.GithubAppController{
 		AtlantisURL:         parsedURL,

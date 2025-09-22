@@ -172,7 +172,6 @@ var staticAssets embed.FS
 func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 	logging.SuppressDefaultLogging()
 	logger, err := logging.NewStructuredLoggerFromLevel(userConfig.ToLogLevel())
-
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +224,6 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 	}
 
 	statsScope, statsReporter, closer, err := metrics.NewScope(globalCfg.Metrics, logger, userConfig.StatsNamespace)
-
 	if err != nil {
 		return nil, errors.Wrapf(err, "instantiating metrics scope")
 	}
@@ -416,13 +414,11 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 	commitStatusUpdater := &events.DefaultCommitStatusUpdater{Client: vcsClient, StatusName: userConfig.VCSStatusName}
 
 	binDir, err := mkSubDir(userConfig.DataDir, BinDirName)
-
 	if err != nil {
 		return nil, err
 	}
 
 	cacheDir, err := mkSubDir(userConfig.DataDir, TerraformPluginCacheDirName)
-
 	if err != nil {
 		return nil, err
 	}
@@ -529,6 +525,8 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 		GithubAppEnabled: githubAppEnabled,
 	}
 
+	// TODO(ramon): refactor this towards gocron / ScheduleManager struct
+	// making future schedule based feature requests easier to implement (such as Drift Detection and TF Cache clean-up)
 	scheduledExecutorService := scheduled.NewExecutorService(
 		statsScope,
 		logger,
@@ -561,6 +559,7 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 		}
 		scheduledExecutorService.AddJob(tokenJd)
 	}
+	// this is essentialy the end of the scheduler refactor TODO
 
 	projectLocker := &events.DefaultProjectLocker{
 		Locker:     lockingClient,
@@ -676,7 +675,6 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 	)
 
 	showStepRunner, err := runtime.NewShowStepRunner(terraformClient, defaultTfDistribution, defaultTfVersion)
-
 	if err != nil {
 		return nil, errors.Wrap(err, "initializing show step runner")
 	}
@@ -686,7 +684,6 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 		defaultTfVersion,
 		policy.NewConfTestExecutorWorkflow(logger, binDir, &policy.ConfTestGoGetterVersionDownloader{}),
 	)
-
 	if err != nil {
 		return nil, errors.Wrap(err, "initializing policy check step runner")
 	}
@@ -1200,7 +1197,7 @@ func (s *Server) Index(w http.ResponseWriter, _ *http.Request) {
 		GlobalApplyLockEnabled: applyCmdLock.GlobalApplyLockEnabled,
 		TimeFormatted:          applyCmdLock.Time.Format("2006-01-02 15:04:05"),
 	}
-	//Sort by date - newest to oldest.
+	// Sort by date - newest to oldest.
 	sort.SliceStable(lockResults, func(i, j int) bool { return lockResults[i].Time.After(lockResults[j].Time) })
 
 	err = s.IndexTemplate.Execute(w, web_templates.IndexData{
@@ -1216,7 +1213,6 @@ func (s *Server) Index(w http.ResponseWriter, _ *http.Request) {
 }
 
 func preparePullToJobMappings(s *Server) []jobs.PullInfoWithJobIDs {
-
 	pullToJobMappings := s.ProjectCmdOutputHandler.GetPullToJobMapping()
 
 	for i := range pullToJobMappings {
@@ -1226,13 +1222,13 @@ func preparePullToJobMappings(s *Server) []jobs.PullInfoWithJobIDs {
 			pullToJobMappings[i].JobIDInfos[j].TimeFormatted = pullToJobMappings[i].JobIDInfos[j].Time.Format("2006-01-02 15:04:05")
 		}
 
-		//Sort by date - newest to oldest.
+		// Sort by date - newest to oldest.
 		sort.SliceStable(pullToJobMappings[i].JobIDInfos, func(x, y int) bool {
 			return pullToJobMappings[i].JobIDInfos[x].Time.After(pullToJobMappings[i].JobIDInfos[y].Time)
 		})
 	}
 
-	//Sort by repository, project, path, workspace then date.
+	// Sort by repository, project, path, workspace then date.
 	sort.SliceStable(pullToJobMappings, func(x, y int) bool {
 		if pullToJobMappings[x].Pull.RepoFullName != pullToJobMappings[y].Pull.RepoFullName {
 			return pullToJobMappings[x].Pull.RepoFullName < pullToJobMappings[y].Pull.RepoFullName

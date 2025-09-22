@@ -1,3 +1,4 @@
+// TODO: replace this whole executor service with the ScheduleManager
 package scheduled
 
 import (
@@ -23,7 +24,8 @@ func NewExecutorService(
 	statsScope tally.Scope,
 	log logging.SimpleLogging,
 ) *ExecutorService {
-
+	// TODO: I feel like this shouldn't happen in a constructor and can be nicely
+	// decoupled from the ScheduleManager with the new impl?
 	scheduledScope := statsScope.SubScope("scheduled")
 	runtimeStatsPublisher := NewRuntimeStats(scheduledScope)
 
@@ -31,6 +33,7 @@ func NewExecutorService(
 		Job:    runtimeStatsPublisher,
 		Period: 10 * time.Second,
 	}
+	// END TODO
 
 	return &ExecutorService{
 		log:  log,
@@ -99,7 +102,6 @@ func (s *ExecutorService) runScheduledJob(ctx context.Context, wg *sync.WaitGrou
 			}
 		}
 	}()
-
 }
 
 //go:generate pegomock generate --package mocks -o mocks/mock_executor_service_job.go Job
